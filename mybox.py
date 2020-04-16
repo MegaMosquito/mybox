@@ -13,7 +13,7 @@ import time
 import datetime
 from collections import deque
 
-from leds import *
+from rgb_leds import *
 from buttons import *
 
 
@@ -111,9 +111,9 @@ class FanThread(threading.Thread):
 
 # Loop forever checking status, and setting status LEDs accordingly
 SLEEP_BETWEEN_STATUS_CHECKS_SEC = 10
-led_main = None
-led_router = None
-led_modem = None
+rgb_led_main = None
+rgb_led_router = None
+rgb_led_modem = None
 class StatusThread(threading.Thread):
   def run(self):
     while True:
@@ -142,24 +142,24 @@ class ButtonThread(threading.Thread):
     global button_wifi_start
     global button_router_start
     global button_modem_start
-    global led_main
-    global led_router
-    global led_modem
+    global rgb_led_main
+    global rgb_led_router
+    global rgb_led_modem
     while True:
 
       #  main button
       if not button_main.is_pressed():
         button_main_start = None
         button_main_cycling = None
-        led_main.flash(False)
+        rgb_led_main.flash(False)
       elif button_main.is_pressed() and not button_main_start:
         button_main_start = time.time()
       else:
         elapsed = (time.time() - button_main_start)
         if elapsed > FLASH_START:
-          led_main.flash(True)
+          rgb_led_main.flash(True)
         if elapsed > FLASH_ENOUGH and not button_main_cycling:
-          led_main.flash(False)
+          rgb_led_main.flash(False)
           button_main_cycling = time.time()
           power_cycle("main")
         elif elapsed > FLASH_ENOUGH and button_main_cycling:
@@ -187,15 +187,15 @@ class ButtonThread(threading.Thread):
       if not button_router.is_pressed():
         button_router_start = None
         button_router_cycling = None
-        led_router.flash(False)
+        rgb_led_router.flash(False)
       elif button_router.is_pressed() and not button_router_start:
         button_router_start = time.time()
       else:
         elapsed = (time.time() - button_router_start)
         if elapsed > FLASH_START:
-          led_router.flash(True)
+          rgb_led_router.flash(True)
         if elapsed > FLASH_ENOUGH and not button_router_cycling:
-          led_router.flash(False)
+          rgb_led_router.flash(False)
           button_router_cycling = time.time()
           power_cycle("router")
         elif elapsed > FLASH_ENOUGH and button_router_cycling:
@@ -208,15 +208,15 @@ class ButtonThread(threading.Thread):
       if not button_modem.is_pressed():
         button_modem_start = None
         button_modem_cycling = None
-        led_modem.flash(False)
+        rgb_led_modem.flash(False)
       elif button_modem.is_pressed() and not button_modem_start:
         button_modem_start = time.time()
       else:
         elapsed = (time.time() - button_modem_start)
         if elapsed > FLASH_START:
-          led_modem.flash(True)
+          rgb_led_modem.flash(True)
         if elapsed > FLASH_ENOUGH and not button_modem_cycling:
-          led_modem.flash(False)
+          rgb_led_modem.flash(False)
           button_modem_cycling = time.time()
           power_cycle("modem")
         elif elapsed > FLASH_ENOUGH and button_modem_cycling:
@@ -262,14 +262,14 @@ if __name__ == '__main__':
   button_router = Button("router", MY_BUTTON_ROUTER)
   button_modem = Button("modem", MY_BUTTON_MODEM)
 
-  # Create the LED objects
-  led_main = LED("main", MY_LED_MAIN_GREEN, MY_LED_MAIN_RED)
-  led_router = LED("router", MY_LED_ROUTER_GREEN, MY_LED_ROUTER_RED)
-  led_modem = LED("modem", MY_LED_MODEM_GREEN, MY_LED_MODEM_RED)
+  # Create the RGB_LED objects
+  rgb_led_main = RGB_LED("main", MY_LED_MAIN_RED, MY_LED_MAIN_GREEN, None)
+  rgb_led_router = RGB_LED("router", MY_LED_ROUTER_RED, MY_LED_ROUTER_GREEN, None)
+  rgb_led_modem = RGB_LED("modem", MY_LED_MODEM_RED, MY_LED_MODEM_GREEN, None)
 
   # Monitor status, and operate the status LEDs accordingly
   stable = False
-  led_main.red()
+  rgb_led_main.red()
   status = StatusThread()
   status.start()
 
@@ -279,6 +279,6 @@ if __name__ == '__main__':
 
   # Prevent exit and operate the LED flasher
   while True:
-    LED.toggle_flasher()
+    RGB_LED.toggle_flash_state()
     time.sleep(0.5)
 
