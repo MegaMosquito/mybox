@@ -4,12 +4,13 @@ WORKDIR /usr/src/app
 # Install build tools
 RUN apk --no-cache --update add gawk bc socat git gcc libc-dev linux-headers scons swig
 
-# Install the python GPIO library
-RUN pip install RPi.GPIO
+# Install the python libraries
+RUN pip install RPi.GPIO requests
 
 # Copy over the required files
-COPY ./mybox.py .
+COPY ./*.py /
 
 # Run the daemon
-CMD python mybox.py
+WORKDIR /
+CMD python /mybox.py
 

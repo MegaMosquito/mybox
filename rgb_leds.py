@@ -19,7 +19,7 @@ import RPi.GPIO as GPIO
 
 
 # Debug flags
-DEBUG_RGB_LEDS = True
+DEBUG_RGB_LEDS = False
 
 # Debug print
 def debug(flag, str):
@@ -27,15 +27,17 @@ def debug(flag, str):
     print(str)
 
 
-SLEEP_BETWEEN_STATE_CHANGESS_SEC = 0.25
+SLEEP_BETWEEN_UPDATES_SEC = 0.1
 class RGB_LED(threading.Thread):
 
   flash_state = False
 
+  # The main program must call this regularly to change the flash state
   @classmethod
   def toggle_flash_state(cls):
     cls.flash_state = not cls.flash_state
 
+  # Constructor for an RGB_LED
   # Pass None to the constuctor as a color pin number to not use that color.
   # E.g., to not use blue:  x = RGB_LED("foo", 20, 21, None)
   def __init__(self, name, gpio_red, gpio_green, gpio_blue):
@@ -48,28 +50,34 @@ class RGB_LED(threading.Thread):
     self._green = False
     self._blue = False
     self._flash = False
+    self._keep_swimming = True
     self.start()
 
+  # Command this RGB_LED to turn off
   def off(self):
     self._green = False
     self._red = False
     self._blue = False
 
+  # Command this RGB_LED to turn red
   def red(self):
     self._green = False
     self._red = True
     self._blue = False
 
+  # Command this RGB_LED to turn green
   def green(self):
     self._green = True
     self._red = False
     self._blue = False
 
+  # Command this RGB_LED to turn blue
   def blue(self):
     self._green = True
     self._red = False
     self._blue = True
 
+  # Return a string describing the current state of hit RGB_LED (for debugging)
   def state(self):
     if self._flash:
       if self._red: return "red,flashing"
@@ -81,29 +89,42 @@ class RGB_LED(threading.Thread):
       elif self._blue: return "blue,solid"
     return "off"
 
+  # Command this RGB_LED to start or stop flashing
   def flash(self, which):
     self._flash = which
 
+  def stop(self):
+    self._keep_swimming = False
+
   def run(self):
     debug(DEBUG_RGB_LEDS, ("Starting RGB_LED \"%s\", pins: R=%s G=%s B=%s" % (self.name, str(self.gpio_red), str(self.gpio_green), str(self.gpio_blue))))
-    while True:
+    while self._keep_swimming:
       on = True
+      # If this RGB_LED is in flashing state
       if self._flash:
+        # Set "on" to the state of the global toggle (else leave it on)
         on = RGB_LED.flash_state 
-      if on and self._red:
-        GPIO.output(self.gpio_red, GPIO.HIGH)
-      else:
-        GPIO.output(self.gpio_red, GPIO.LOW)
-      if on and self._green:
-        GPIO.output(self.gpio_green, GPIO.HIGH)
-      else:
-        GPIO.output(self.gpio_green, GPIO.LOW)
-      if on and self._blue:
-        GPIO.output(self.gpio_blue, GPIO.HIGH)
-      else:
-        GPIO.output(self.gpio_blue, GPIO.LOW)
-      debug(DEBUG_RGB_LEDS, ("--> RGB_LED \"%s\", state: %s" % (self.name, self.state)))
-      time.sleep(SLEEP_BETWEEN_STATE_CHANGESS_SEC)
+      # if a gpio pin is defined for red:
+      if self.gpio_red:
+        # if the global toggle is on, and red is active (true) on this RGB_LED:
+        if on and self._red:
+          GPIO.output(self.gpio_red, GPIO.HIGH)
+        # Otherwise the global toggle is off, or red is nto currently active
+        else:
+          GPIO.output(self.gpio_red, GPIO.LOW)
+      if self.gpio_green:
+        if on and self._green:
+          GPIO.output(self.gpio_green, GPIO.HIGH)
+        else:
+          GPIO.output(self.gpio_green, GPIO.LOW)
+      if self.gpio_blue:
+        if on and self._blue:
+          GPIO.output(self.gpio_blue, GPIO.HIGH)
+        else:
+          GPIO.output(self.gpio_blue, GPIO.LOW)
+      if self._red or self._green or self._blue:
+        debug(DEBUG_RGB_LEDS, ("--> RGB_LED \"%s\", state: %s" % (self.name, self.state())))
+      time.sleep(SLEEP_BETWEEN_UPDATES_SEC)
 
 
 
