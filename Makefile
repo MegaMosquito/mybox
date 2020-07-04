@@ -13,9 +13,9 @@ MY_LED_MODEM_GREEN       := 8
 MY_LED_MODEM_RED         := 7
 
 # Solid State Relay GPIO numbers
-MY_RELAY_WIFI            := 17
+MY_RELAY_WIFI            := 22
 MY_RELAY_ROUTER          := 27
-MY_RELAY_MODEM           := 22
+MY_RELAY_MODEM           := 17
 
 # Push button switches
 MY_BUTTON_MAIN           := 26
@@ -67,6 +67,7 @@ dev: build
             -e MY_WIFI_AP_IP=$(MY_WIFI_AP_IP) \
             -e MY_OUTSIDE_IP=$(MY_OUTSIDE_IP) \
             -e MY_WIFI_MONITORS=$(MY_WIFI_MONITORS) \
+            -p 8666:8666 \
             --volume /sys/class/thermal/thermal_zone0/temp:/cputemp \
             --volume `pwd`:/outside \
             ibmosquito/mybox:1.0.0 /bin/sh
@@ -96,8 +97,12 @@ run:
             -e MY_WIFI_AP_IP=$(MY_WIFI_AP_IP) \
             -e MY_OUTSIDE_IP=$(MY_OUTSIDE_IP) \
             -e MY_WIFI_MONITORS=$(MY_WIFI_MONITORS) \
+            -p 8666:8666 \
             --volume /sys/class/thermal/thermal_zone0/temp:/cputemp \
             ibmosquito/mybox:1.0.0
+
+status:
+	curl -sS localhost:8666 | jq .
 
 exec:
 	docker exec -it mybox /bin/sh

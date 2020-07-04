@@ -5,7 +5,7 @@ WORKDIR /usr/src/app
 RUN apk --no-cache --update add gawk bc socat git gcc libc-dev linux-headers scons swig
 
 # Install the python libraries
-RUN pip install RPi.GPIO requests
+RUN pip install RPi.GPIO Flask requests
 
 # Copy over the required files
 COPY ./*.py /

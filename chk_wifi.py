@@ -5,6 +5,7 @@
 #
 
 
+import json
 import requests
 import threading
 import time
@@ -28,10 +29,10 @@ class WiFiMonitor(threading.Thread):
     threading.Thread.__init__(self)
     self._wifis = wifis
     self._lasts = {}
-    for k in self._wifis.keys():
-      v = self._wifis[k]
-      self._lasts[v] = 0
-      debug(DEBUG_WIFI, ('--> "%s": "%s"' % (k, v)))
+    for ssid in self._wifis.keys():
+      addr = self._wifis[ssid]
+      self._lasts[addr] = 0
+      debug(DEBUG_WIFI, ('--> "%s": "%s"' % (ssid, addr)))
     self._keep_swimming = True
     self.start()
 
@@ -46,6 +47,16 @@ class WiFiMonitor(threading.Thread):
         which = addr
     debug(DEBUG_WIFI, ('<-- last: %0.1f (t=%0.1fs)' % (self._lasts[addr], longest)))
     return self._lasts[addr]
+
+  def details(self):
+    j = dict()
+    for ssid in self._wifis.keys():
+      addr = self._wifis[ssid]
+      j[ssid] = dict()
+      j[ssid]['addr'] = addr
+      j[ssid]['last'] = time.time() - self._lasts[addr]
+    debug(DEBUG_WIFI, ('<-- details: %s' % (json.dumps(j))))
+    return (json.dumps(j) + '\n').encode('UTF-8')
 
   def stop(self):
     self._keep_swimming = False

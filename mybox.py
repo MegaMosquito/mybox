@@ -17,6 +17,13 @@ from rgb_leds import *
 from buttons import *
 from chk_wifi import *
 
+# Flask for debugging
+FLASK_BIND_ADDRESS = '0.0.0.0'
+FLASK_PORT = 8666
+from flask import Flask
+webapp = Flask('box')
+
+
 
 # Import the GPIO library so python can work with the GPIO pins
 import RPi.GPIO as GPIO
@@ -194,6 +201,7 @@ def start_power_cycle(which):
 SLEEP_BETWEEN_PINGS_SEC = 10
 PING_TIMEOUT_SEC = 10
 ping_times = {}
+wifi_monitor = None
 class PingThread(threading.Thread):
   def __init__(self, name, addr):
     threading.Thread.__init__(self)
@@ -246,9 +254,6 @@ class StatusThread(threading.Thread):
     rgb_led_wifi.flash(True)
     rgb_led_router.flash(True)
     rgb_led_modem.flash(True)
-    import ast
-    wifis = ast.literal_eval(MY_WIFI_MONITORS)
-    wifi = WiFiMonitor(wifis)
     router_ping_thread = PingThread("router", MY_ROUTER_IP)
     router_ping_thread.start()
     wifi_ap_ping_thread = PingThread("ap", MY_WIFI_AP_IP)
@@ -303,7 +308,7 @@ class StatusThread(threading.Thread):
           rgb_led_modem.flash(True)
 
         # WiFi monitors' connection status
-        last_good_monitors = wifi.last_good_status()
+        last_good_monitors = wifi_monitor.last_good_status()
         debug(DEBUG_WIFI_MONITORS, '--> LastGoodMonitors: %0.1fs' % (last_good_monitors))
         if MONITORS_ALIVE_TOLERANCE_SEC >= (time.time() - last_good_monitors):
           debug(DEBUG_WIFI_MONITORS, '** GOOD!')
@@ -320,13 +325,11 @@ class StatusThread(threading.Thread):
 
       time.sleep(SLEEP_BETWEEN_LED_CHECKS_SEC)
 
-    wifi.stop()
-
 
 
 # Loop forever watching the buttons, and if needed, power cycling things
 FLASH_START_SEC = 0.5
-FLASH_ENOUGH_SEC = 5.0
+FLASH_ENOUGH_SEC = 4.0
 SLEEP_BETWEEN_BUTTON_CHECKS_SEC = 0.33
 button_main = None
 button_wifi = None
@@ -396,7 +399,39 @@ class ButtonThread(threading.Thread):
             power_cycling_target = "modem"
             start_power_cycle("modem")
 
+      RGB_LED.toggle_flash_state()
       time.sleep(SLEEP_BETWEEN_BUTTON_CHECKS_SEC)
+
+
+
+
+@webapp.route("/")
+def get_status():
+  j = dict()
+  j['swimming'] = keep_on_swimming
+  j['power-cycling'] = 'None'
+  if power_cycling_target:
+    j['power-cycling'] = power_cycling_target
+  import ast
+  j['wifi-monitors'] = ast.literal_eval(wifi_monitor.details().decode('UTF-8'))
+  j['buttons'] = dict()
+  j['buttons']['main'] = button_main.held_time()
+  j['buttons']['wifi'] = button_main.held_time()
+  j['buttons']['router'] = button_main.held_time()
+  j['buttons']['modem'] = button_main.held_time()
+  j['rgb-leds'] = dict()
+  j['rgb-leds']['main'] = rgb_led_main.state()
+  j['rgb-leds']['wifi-ap'] = rgb_led_wifi.state()
+  j['rgb-leds']['router'] = rgb_led_router.state()
+  j['rgb-leds']['modem'] = rgb_led_modem.state()
+  j['last-ping'] = dict()
+  j['last-ping']['wifi-monitors'] = (time.time() - wifi_monitor.last_good_status())
+  j['last-ping']['router'] = (time.time() - ping_times["router"])
+  j['last-ping']['wifi-ap'] = (time.time() - ping_times["ap"])
+  j['last-ping']['outside'] = (time.time() - ping_times["outside"])
+  return (json.dumps(j) + '\n').encode('UTF-8')
+
+
 
 
 
@@ -417,6 +452,7 @@ if __name__ == '__main__':
     rgb_led_wifi.stop()
     rgb_led_router.stop()
     rgb_led_modem.stop()
+    wifi_monitor.stop()
     sys.exit(0)
   signal.signal(signal.SIGINT, signal_handler)
   signal.signal(signal.SIGTERM, signal_handler)
@@ -450,6 +486,11 @@ if __name__ == '__main__':
   rgb_led_router = RGB_LED("router", MY_LED_ROUTER_RED, MY_LED_ROUTER_GREEN, None)
   rgb_led_modem = RGB_LED("modem", MY_LED_MODEM_RED, MY_LED_MODEM_GREEN, None)
 
+  # Setup a monitor for the 4 wifi ssid listeners
+  import ast
+  wifis = ast.literal_eval(MY_WIFI_MONITORS)
+  wifi_monitor = WiFiMonitor(wifis)
+
   # Monitor system status, and operate the status LEDs accordingly
   status = StatusThread()
   status.start()
@@ -458,8 +499,6 @@ if __name__ == '__main__':
   buttons = ButtonThread()
   buttons.start()
 
-  # Prevent exit and operate the LED flasher
-  while keep_on_swimming:
-    RGB_LED.toggle_flash_state()
-    time.sleep(0.5)
+  # Start the Flask REST server (which never exits)
+  webapp.run(host=FLASK_BIND_ADDRESS, port=FLASK_PORT)
 
